@@ -6,24 +6,17 @@ import { $, $$ } from "./ui/dom.js";
 import * as shelf from "./ui/shelf.js";
 import * as settings from "./ui/settings.js";
 import * as timer from "./ui/timer.js";
+import * as stats from "./ui/stats.js";
 import { openAddBook } from "./ui/addBook.js";
 
 const TABS = {
   estante: { title: "Estante", screen: shelf },
   ler: { title: "Ler", screen: timer },
-  dados: { title: "Dados", screen: placeholder("As estatísticas chegam numa fase seguinte.") },
+  dados: { title: "Dados", screen: stats },
   ajustes: { title: "Ajustes", screen: settings },
 };
 
 let current = null;
-
-function placeholder(text) {
-  return {
-    render(main) {
-      main.innerHTML = `<section class="screen screen--padded"><p class="empty">${text}</p></section>`;
-    },
-  };
-}
 
 function go(tab) {
   if (!TABS[tab]) tab = "estante";
@@ -79,6 +72,10 @@ async function start() {
   timer.init();
 
   go(timer.needsLongCheck() ? "ler" : location.hash.slice(1) || "estante");
+
+  // offline depois da primeira carga. A versão nova do sw.js entra em vigor na próxima abertura:
+  // a página atual nunca é recarregada, nem no meio de uma leitura cronometrada.
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 }
 
 start();

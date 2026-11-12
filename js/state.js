@@ -44,11 +44,22 @@ export async function load() {
   state.shelves = shelves.sort((a, b) => a.order - b.order);
   state.sessions = sessions;
   state.settings = { ...DEFAULT_SETTINGS, ...settings };
+  const ops = [];
   if (!state.shelves.length) {
     const s = { id: crypto.randomUUID(), name: "Prateleira 1", order: 0, auto: false };
     state.shelves.push(s);
-    await db.write([{ put: "shelves", value: s }]);
+    ops.push({ put: "shelves", value: s });
   }
+  // livro sem prateleira válida (backup mesclado, prateleira apagada em outro aparelho): vai para a última
+  const ids = new Set(state.shelves.map((s) => s.id));
+  const last = state.shelves.at(-1).id;
+  let pos = 1e6;
+  for (const b of state.books.values()) {
+    if (!ids.has(b.shelfId)) { b.shelfId = last; b.position = pos++; ops.push({ put: "books", value: b }); }
+  }
+  // largura de tela diferente da última abertura também pode exigir rearranjo
+  ops.push(...rebalance());
+  if (ops.length) await db.write(dedupe(ops));
 }
 
 export async function saveSettings(patch) {
