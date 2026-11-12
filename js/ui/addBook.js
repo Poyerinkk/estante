@@ -1,7 +1,7 @@
 // Adicionar livro: busca, link da Amazon, ISBN (com câmera) e cadastro manual.
 // Depois de escolher, uma tela de revisão com tudo editável.
 
-import { state, newBook, addBook, firstShelfWithRoom } from "../state.js";
+import { state, newBook, addBook, updateBook, firstShelfWithRoom } from "../state.js";
 import { searchText, searchIsbn, olCoverIsbn } from "../lib/search.js";
 import { parse as parseIsbn, amazonCode, isValid10, to13 } from "../lib/isbn.js";
 import { download, resize, dominantColor } from "../lib/cover.js";
@@ -253,7 +253,13 @@ function leaveReview(ctx) {
 
 const STATUS = [["quero_ler", "Quero ler"], ["lendo", "Lendo"], ["lido", "Lido"]];
 
-function reviewForm(ctx, r) {
+/** Editar dados de um livro já na estante: o mesmo formulário, sem status nem prateleira. */
+export function openEditBook(book) {
+  const sheet = openSheet({ title: "Editar dados" });
+  sheet.body.append(reviewForm({ sheet }, book, { edit: book }));
+}
+
+function reviewForm(ctx, r, { edit = null } = {}) {
   const el = html(`
     <form class="review stack" novalidate>
       <div class="review__cover-row">
@@ -289,14 +295,14 @@ function reviewForm(ctx, r) {
         <input class="input" name="isbn" inputmode="numeric" autocomplete="off">
         <span class="field__hint" data-isbn-hint></span></label>
 
-      <div class="field">
+      <div class="field" data-new-only>
         <span class="field__label">Status</span>
         <div class="segmented" role="group" aria-label="Status" data-status>
           ${STATUS.map(([v, l]) => `<button type="button" data-v="${v}" aria-pressed="${v === "quero_ler"}">${l}</button>`).join("")}
         </div>
       </div>
 
-      <label class="field"><span class="field__label">Prateleira</span>
+      <label class="field" data-new-only><span class="field__label">Prateleira</span>
         <select class="select" name="shelf">
           ${state.shelves.map((s) => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("")}
         </select>
@@ -304,10 +310,12 @@ function reviewForm(ctx, r) {
       </label>
 
       <p class="note" data-error role="alert"></p>
-      <button class="btn btn--primary btn--block" type="submit">Adicionar à estante</button>
+      <button class="btn btn--primary btn--block" type="submit">${edit ? "Salvar alterações" : "Adicionar à estante"}</button>
     </form>`);
 
   const f = el.elements;
+  if (edit) el.querySelectorAll("[data-new-only]").forEach((x) => x.remove());
+  f.edition.value = r.edition || "";
   f.title.value = r.title || "";
   f.author.value = r.author || "";
   f.publisher.value = r.publisher || "";
@@ -326,10 +334,10 @@ function reviewForm(ctx, r) {
   // prateleira padrão: a primeira com espaço; acompanha as páginas até o usuário escolher
   let shelfTouched = false;
   const suggestShelf = () => {
-    if (!shelfTouched) f.shelf.value = firstShelfWithRoom({ totalPages: +f.totalPages.value || null });
+    if (!shelfTouched && f.shelf) f.shelf.value = firstShelfWithRoom({ totalPages: +f.totalPages.value || null });
   };
   suggestShelf();
-  f.shelf.addEventListener("change", () => { shelfTouched = true; });
+  f.shelf?.addEventListener("change", () => { shelfTouched = true; });
   f.totalPages.addEventListener("input", suggestShelf);
 
   /* capa */
@@ -360,8 +368,16 @@ function reviewForm(ctx, r) {
     }
   }));
 
+  // edição: começa com a capa que o livro já tem
+  if (edit?.cover) setBlob(edit.cover);
+  else if (edit?.coverRemoteUrl) {
+    cover.remote = edit.coverRemoteUrl;
+    showCover(edit.coverRemoteUrl);
+    coverNote.textContent = "Capa não salva offline. Dá para trocar por uma foto.";
+  }
+
   // a busca por título raramente traz o número de páginas; o registro do ISBN costuma ter
-  if (!r.totalPages && (r.isbn13 || r.isbn10)) {
+  if (!edit && !r.totalPages && (r.isbn13 || r.isbn10)) {
     searchIsbn(r.isbn13 || r.isbn10, { key: state.settings.googleBooksKey })
       .then(({ results }) => {
         const found = results.find((x) => x.totalPages);
@@ -377,7 +393,7 @@ function reviewForm(ctx, r) {
     olCoverIsbn(r.isbn13), olCoverIsbn(r.isbn10),
     r.coverUrl,
   ].filter(Boolean))];
-  if (urls.length) {
+  if (urls.length && !edit) {
     coverNote.textContent = "Salvando capa…";
     const job = (ctx.coverJob = download(urls));
     job.then((res) => {
@@ -410,7 +426,7 @@ function reviewForm(ctx, r) {
 
     const year = parseInt(f.year.value, 10);
     const pages = parseInt(f.totalPages.value, 10);
-    const book = newBook({
+    const fields = {
       title,
       author: f.author.value.trim(),
       publisher: f.publisher.value.trim(),
@@ -421,12 +437,18 @@ function reviewForm(ctx, r) {
       isbn10: isbn.isbn10 || "",
       cover: cover.blob,
       coverRemoteUrl: cover.blob ? "" : cover.remote,
-      spineColor: cover.blob ? await dominantColor(cover.blob).catch(() => "") : "",
-      status,
-      shelfId: shelfTouched ? f.shelf.value : null,
-    });
+    };
+    // a cor da lombada só é recalculada quando a capa muda
+    fields.spineColor = edit && edit.cover === cover.blob ? edit.spineColor
+      : cover.blob ? await dominantColor(cover.blob).catch(() => "") : "";
     try {
-      await addBook(book);
+      if (edit) {
+        await updateBook(edit, fields);
+        ctx.sheet.close();
+        toast("Dados salvos.");
+        return;
+      }
+      await addBook(newBook({ ...fields, status, shelfId: shelfTouched ? f.shelf.value : null }));
     } catch {
       btn.disabled = false;
       err.textContent = "Não foi possível salvar. Tente de novo.";

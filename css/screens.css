@@ -208,6 +208,153 @@
   line-height: 1.25;
 }
 
+/* ---------- capa gerada (livro sem foto) ---------- */
+
+.gen-cover {
+  --c: var(--spine-neutral);
+  --ink: var(--text);
+  container-type: size;
+  width: 100%;
+  height: 100%;
+  background: var(--c);
+  color: var(--ink);
+  text-align: center;
+  font-family: var(--font-serif);
+}
+/* medidas em cqw valem só para os filhos do contêiner, por isso o miolo é um elemento à parte */
+.gen-cover__in {
+  height: 100%;
+  display: grid;
+  align-content: center;
+  gap: 6cqw;
+  padding: 12cqw 10cqw;
+}
+.gen-cover__title { font-size: 11cqw; line-height: 1.15; font-weight: 500; overflow-wrap: anywhere; }
+.gen-cover__author { font-size: 6.5cqw; opacity: .75; }
+
+/* ---------- livro em voo (abrir e fechar) ---------- */
+
+.fly {
+  position: fixed;
+  z-index: 35;
+  transform-style: preserve-3d;
+  transform-origin: 50% 50%;
+  pointer-events: none;
+  will-change: transform;
+}
+.fly__face {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  overflow: hidden;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+.fly__spine {
+  left: 0;
+  border-radius: 2px 2px 1px 1px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .07);
+}
+.fly__cover { border-radius: 2px; background: var(--surface-2); }
+.fly__cover img { width: 100%; height: 100%; object-fit: cover; }
+.fly--flat .fly__face { left: 0; -webkit-backface-visibility: visible; backface-visibility: visible; }
+
+/* ---------- página do livro ---------- */
+
+.bookpage {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  justify-content: center;
+}
+.bookpage__bg { position: absolute; inset: 0; background: var(--bg); }
+.bookpage__col {
+  position: relative;
+  width: 100%;
+  max-width: var(--col-max);
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+@media (min-width: 481px) {
+  .bookpage__col { border-inline: 1px solid var(--line); }
+}
+.bookpage__bar { padding-right: var(--s-2); }
+.bookpage__body {
+  scrollbar-width: thin;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 var(--gutter) calc(var(--s-10) + env(safe-area-inset-bottom));
+  display: grid;
+  gap: var(--s-6);
+  align-content: start;
+}
+.bookpage.is-opening [data-block] { opacity: 0; }
+.bookpage.is-opening [data-cover] { visibility: hidden; }
+.bookpage.is-fading-in { animation: fade-in 100ms ease-out; }
+.bookpage.is-fading-out { animation: sheet-out 100ms ease-out forwards; }
+
+.bp-head { text-align: center; padding-top: var(--s-1); }
+.bp-title {
+  font-size: var(--fs-5);
+  line-height: 1.15;
+  letter-spacing: -.01em;
+  overflow-wrap: anywhere;
+}
+.bp-author { margin-top: var(--s-1); color: var(--text-2); }
+
+.bp-cover-wrap { display: grid; justify-items: center; gap: var(--s-2); }
+.bp-cover {
+  width: 58%;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--surface-2);
+  box-shadow: 0 0 0 1px var(--line);
+}
+.bp-cover img { width: 100%; height: 100%; object-fit: cover; }
+
+.bp-meta { text-align: center; font-size: var(--fs-1); color: var(--text-2); }
+.bp-section { display: grid; gap: var(--s-3); }
+.bp-bar { height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.bp-bar span { display: block; height: 100%; background: var(--accent); }
+.bp-progress { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); }
+.bp-page { display: flex; align-items: center; gap: var(--s-2); }
+.bp-page__input { width: 84px; text-align: center; }
+.bp-eval .field { gap: 6px; }
+
+.sessions { display: grid; }
+.session {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: var(--s-1);
+  padding: var(--s-2) 0;
+  border-bottom: 1px solid var(--line);
+}
+.session:last-child { border-bottom: 0; }
+.session__text { min-width: 0; }
+
+/* ---------- menu e diálogo com formulário ---------- */
+
+.dialog__title { font-family: var(--font-serif); font-size: var(--fs-3); }
+.dialog--menu { padding: var(--s-2); }
+.menu { display: grid; }
+.menu__item {
+  min-height: 48px;
+  padding: 0 var(--s-4);
+  border: 0;
+  border-radius: var(--r-card);
+  background: none;
+  text-align: left;
+  font-size: var(--fs-2);
+}
+.menu__item:active { background: var(--surface-2); }
+.menu__item--danger { color: var(--danger); }
+.menu__item--cancel { color: var(--text-2); }
+
 /* ---------- ajustes ---------- */
 
 .settings-group { display: grid; gap: var(--s-3); padding: var(--s-4) 0 var(--s-6); }

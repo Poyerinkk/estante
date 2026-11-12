@@ -26,7 +26,12 @@ export const state = {
 };
 
 const bus = new EventTarget();
-export const on = (type, fn) => bus.addEventListener(type, (e) => fn(e.detail));
+/** Assina um evento; devolve a função que cancela a assinatura. */
+export function on(type, fn) {
+  const h = (e) => fn(e.detail);
+  bus.addEventListener(type, h);
+  return () => bus.removeEventListener(type, h);
+}
 export const emit = (type, detail) => bus.dispatchEvent(new CustomEvent(type, { detail }));
 
 export async function load() {
