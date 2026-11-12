@@ -4,7 +4,9 @@ Decisões, limites encontrados e como rodar. Atualizado a cada fase.
 
 ## Estado atual
 
-As 9 fases estão prontas. O relatório da revisão final (fase 9) está no fim deste arquivo. Nada foi publicado: a publicação espera a sua autorização.
+As 9 fases estão prontas. O relatório da revisão final (fase 9) está no fim deste arquivo.
+
+**Publicado em https://poyerinkk.github.io/estante/** (repositório público `github.com/Poyerinkk/estante`, GitHub Pages a partir de `master`, pasta raiz). Os commits usam o e-mail privado do GitHub (`…@users.noreply.github.com`). Para publicar uma mudança: troque `VERSION` em `sw.js` se algum arquivo do app mudou, faça o commit e rode `git push`.
 
 ## Publicar (GitHub Pages)
 
