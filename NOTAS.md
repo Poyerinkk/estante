@@ -4,9 +4,33 @@ Decisões, limites encontrados e como rodar. Atualizado a cada fase.
 
 ## Estado atual
 
-Fases 1, 2 e 3 prontas (fundação, adicionar livro, estante estática). Parado no ponto de revisão da fase 3, com capturas em `capturas/`.
+Fases 1 a 6 prontas. Parado no ponto de revisão da fase 6, com sequências em `capturas/fase4/` e `capturas/fase6/`.
 
-As abas **Ler** e **Dados** ainda mostram um texto de espera. **Ajustes** tem só a aparência. O botão **Editar** avisa que o modo de edição vem depois. Tocar numa lombada ainda não faz nada: a página do livro é da fase 5.
+Ainda faltam: a aba **Dados** (fase 7, mostra um texto de espera), **Ajustes** completos (fase 7, hoje só a aparência), o backup e o PWA (fase 8).
+
+## Fase 4: cronômetro
+
+- O tempo vem sempre de `Date.now() - startedAtMs - pausedTotalMs`. O `setInterval` de 250 ms só redesenha o relógio. Ao voltar para o app (`visibilitychange`), a tela é redesenhada com o tempo certo.
+- `activeSession` é gravada no IndexedDB ao iniciar, pausar e retomar. Teste: recarregar a página no meio da leitura mantém o relógio (0:23:05 → 0:23:07).
+- **Encerrar pausa o relógio no toque.** A duração registrada é a do momento do toque, não a de quando a página final é digitada. "Voltar à leitura" retoma. Também há "Descartar esta leitura", com confirmação.
+- **Sessão de mais de 6 horas:** na abertura do app, ele vai direto para a aba Ler e mostra "Esta leitura ficou aberta por X horas. Ajustar o tempo?", com campo em minutos. Ajustar deixa a sessão pausada com a duração informada.
+- **Página corrigida à mão × sessões.** Guardo `currentPageAt` (quando o usuário digitou a página) ao lado de `currentPage`. Ao recalcular depois de editar ou apagar uma sessão, vence o que mudou por último: o `endedAt` da sessão mais recente ou o `currentPageAt`. É um campo a mais no livro, fora do modelo da seção 3.
+- **Lançamento manual:** sem horário, a sessão de hoje termina "agora" e a de outro dia termina ao meio-dia daquele dia, para ordenar pelo `endedAt`.
+- **Tela acesa:** com a opção ligada (a chave chega em Ajustes na fase 7) e com `navigator.wakeLock` disponível, a tela fica acesa só enquanto o relógio corre. Sem suporte, a opção é ignorada sem erro.
+- Um ponto discreto na aba **Ler** indica leitura em andamento.
+
+## Fases 5 e 6: abrir o livro e modo de edição
+
+- **Prisma 3D.** O clone tem duas faces: a lombada de frente e a capa na face lateral direita, a 90°. A profundidade do prisma é a largura da capa, porque é ela que fica de frente no fim. A animação usa `perspective · translate · scale3d · translateZ · rotateY`, com o `translateZ` calculado para a face visível começar e terminar exatamente no plano da tela. Assim a capa pousa no pixel da capa da página, sem salto na troca. São 420 ms com `cubic-bezier(.2,.7,.2,1)`. Depois, os blocos entram com fade e 8 px de deslocamento, 40 ms entre eles.
+- **Fechar** faz o caminho inverso até a posição atual da lombada. Se o livro tiver saído da tela (mudou de página, foi removido), fecha com fade.
+- **Safari do iPhone: não testado** (não há iPhone neste ambiente). Se houver problema com `preserve-3d` ou `backface-visibility`, basta trocar `USE_3D = false` no topo de `js/ui/bookOpen.js`. A alternativa da seção 6.5, item 7, já está implementada: a lombada cresce até o retângulo da capa enquanto a capa aparece por cima.
+- Durante o voo, o Chrome desenha a capa com a resolução do começo da animação, então ela fica um pouco borrada a meio caminho. No fim, a imagem real assume nítida.
+- **Capa gerada** (livro sem foto): fundo `spineColor`, título e autor em serifa. Usa unidades `cqw`, então é idêntica na página e na face do prisma.
+- **Modo de edição:** o tremor usa a propriedade `rotate` e o FLIP usa `translate`. São propriedades individuais, então as duas animações rodam juntas sem uma apagar a outra. O livro arrastado é um clone fixo com escala 1,06 e sombra leve. O original vira o espaço reservado na fileira.
+- **Pressão longa e arrasto sem soltar:** depois dos 450 ms, o mesmo dedo já arrasta. Um `touchmove` não passivo impede a rolagem enquanto o livro está preso ao dedo.
+- **Apagar prateleira:** os livros vão para o fim da anterior (ou da seguinte, se for a primeira), e `rebalance()` cuida do excesso. Por isso, apagar uma prateleira cheia pode criar outra automática logo depois.
+- **Testes** feitos com eventos de ponteiro simulados no Chrome, em 390 × 844. Passaram: entrar por pressão longa (450 ms) e pelo botão; arrastar dentro da prateleira e entre prateleiras; soltar numa prateleira cheia empurra em cascata; trocar de página arrastando (dedo parado na borda por 600 ms); remover pelo "×", com a mensagem do briefing; renomear (a prateleira deixa de ser automática); apagar prateleira; sair tocando numa área vazia.
+- **Não testado com o dedo de verdade.** O ambiente de teste não desenha quadros entre as capturas, então a rolagem suave da troca de página só pôde ser conferida forçando rolagem instantânea. Vale testar no celular depois da publicação (fase 8).
 
 ## Como rodar
 
