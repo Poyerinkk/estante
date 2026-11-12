@@ -2,7 +2,7 @@
 // Toda operação grava no IndexedDB numa só transação (db.write).
 
 import * as db from "./db.js";
-import { today } from "./lib/time.js";
+import { today, isoDate } from "./lib/time.js";
 
 export const DEFAULT_PUBLISHERS = [
   "Editora 34", "Penguin-Companhia", "Martin Claret", "Edipro", "Vozes", "Companhia das Letras",
@@ -21,6 +21,8 @@ export const state = {
   shelves: [],
   sessions: [],
   settings: { ...DEFAULT_SETTINGS },
+  active: null,       // meta.activeSession
+  ui: { timerBookId: null }, // livro escolhido pela página do livro ("Ler agora")
 };
 
 const bus = new EventTarget();
@@ -28,9 +30,11 @@ export const on = (type, fn) => bus.addEventListener(type, (e) => fn(e.detail));
 export const emit = (type, detail) => bus.dispatchEvent(new CustomEvent(type, { detail }));
 
 export async function load() {
-  const [books, shelves, sessions, settings] = await Promise.all([
+  const [books, shelves, sessions, settings, active] = await Promise.all([
     db.getAll("books"), db.getAll("shelves"), db.getAll("sessions"), db.getMeta("settings"),
+    db.getMeta("activeSession"),
   ]);
+  state.active = active || null;
   state.books = new Map(books.map((b) => [b.id, b]));
   state.shelves = shelves.sort((a, b) => a.order - b.order);
   state.sessions = sessions;
@@ -175,4 +179,255 @@ function dedupe(ops) {
   const seen = new Map();
   for (const o of ops) seen.set(`${o.put || o.del}:${o.key || o.value?.id}`, o);
   return [...seen.values()];
+}
+
+const nowIso = () => new Date().toISOString();
+
+/* ---------- edição de livro ---------- */
+
+/** Atualiza campos do livro; se as páginas mudarem, a lombada muda de largura e rebalance() roda. */
+export async function updateBook(book, patch) {
+  Object.assign(book, patch, { updatedAt: nowIso() });
+  await db.write(dedupe([{ put: "books", value: book }, ...rebalance()]));
+  emit("books");
+}
+
+/** Página digitada à mão. Guarda quando mudou, para disputar com a sessão mais recente. */
+export function setCurrentPage(book, page) {
+  return updateBook(book, { currentPage: page, currentPageAt: nowIso() });
+}
+
+/** Regras de status da seção 3. */
+export function setStatus(book, status) {
+  const patch = { status };
+  if (status === "lendo") patch.startedOn = book.startedOn || today();
+  if (status === "lido") {
+    patch.finishedOn = book.finishedOn || today();
+    patch.startedOn = book.startedOn || today();
+    if (book.totalPages) { patch.currentPage = book.totalPages; patch.currentPageAt = nowIso(); }
+  }
+  if (status === "quero_ler") patch.finishedOn = "";
+  return updateBook(book, patch);
+}
+
+/** Remove o livro e as leituras dele, numa transação. */
+export async function removeBook(id) {
+  const ops = [{ del: "books", key: id }];
+  for (const s of state.sessions.filter((x) => x.bookId === id)) ops.push({ del: "sessions", key: s.id });
+  state.sessions = state.sessions.filter((x) => x.bookId !== id);
+  if (state.active?.bookId === id) { state.active = null; ops.push({ meta: "activeSession", value: undefined }); }
+  state.books.delete(id);
+  ops.push(...rebalance());
+  await db.write(ops);
+  emit("active", state.active);
+  emit("books");
+  emit("sessions");
+}
+
+/** Arrastar: põe o livro na prateleira e posição pedidas; rebalance() empurra o excesso. */
+export async function moveBook(id, shelfId, index) {
+  const book = state.books.get(id);
+  const oldShelf = book.shelfId;
+  const from = booksOn(oldShelf).filter((b) => b.id !== id);
+  const to = shelfId === oldShelf ? from : booksOn(shelfId).filter((b) => b.id !== id);
+  to.splice(Math.max(0, Math.min(index, to.length)), 0, book);
+  const ops = [];
+  const renumber = (row, sid) => row.forEach((b, i) => {
+    if (b.shelfId !== sid || b.position !== i) { b.shelfId = sid; b.position = i; ops.push({ put: "books", value: b }); }
+  });
+  if (shelfId !== oldShelf) renumber(from, oldShelf);
+  renumber(to, shelfId);
+  ops.push(...rebalance());
+  await db.write(dedupe(ops));
+  emit("books");
+}
+
+/* ---------- prateleiras ---------- */
+
+export async function addShelf() {
+  const s = { id: crypto.randomUUID(), name: nextShelfName(), order: state.shelves.length, auto: false };
+  state.shelves.push(s);
+  await db.write([{ put: "shelves", value: s }]);
+  emit("books");
+  return s;
+}
+
+/** Renomear tira o "auto": a prateleira deixa de sumir sozinha quando esvazia. */
+export async function renameShelf(id, name) {
+  const s = state.shelves.find((x) => x.id === id);
+  Object.assign(s, { name, auto: false });
+  await db.write([{ put: "shelves", value: s }]);
+  emit("books");
+}
+
+/** Apaga a prateleira; os livros vão para o fim da anterior (ou da seguinte, se for a primeira). */
+export async function deleteShelf(id) {
+  if (state.shelves.length < 2) return;
+  const i = state.shelves.findIndex((x) => x.id === id);
+  const target = state.shelves[i > 0 ? i - 1 : 1];
+  const ops = [{ del: "shelves", key: id }];
+  let pos = booksOn(target.id).length;
+  for (const b of booksOn(id)) {
+    b.shelfId = target.id;
+    b.position = pos++;
+    ops.push({ put: "books", value: b });
+  }
+  state.shelves.splice(i, 1);
+  ops.push(...rebalance());
+  await db.write(dedupe(ops));
+  emit("books");
+}
+
+/* ---------- sessões de leitura ---------- */
+
+async function saveActive(a) {
+  state.active = a;
+  await db.write([{ meta: "activeSession", value: a ?? undefined }]);
+  emit("active", a);
+}
+
+/** Tempo decorrido calculado do relógio, nunca contado: continua certo com a tela apagada. */
+export function elapsedMs(a = state.active, at = Date.now()) {
+  if (!a) return 0;
+  const end = a.pausedAtMs ?? at;
+  return Math.max(0, end - a.startedAtMs - a.pausedTotalMs);
+}
+
+export function startSession(bookId, startPage) {
+  return saveActive({ bookId, startPage, startedAtMs: Date.now(), pausedAtMs: null, pausedTotalMs: 0 });
+}
+
+export function pauseSession() {
+  const a = state.active;
+  if (!a || a.pausedAtMs != null) return;
+  return saveActive({ ...a, pausedAtMs: Date.now() });
+}
+
+export function resumeSession() {
+  const a = state.active;
+  if (!a || a.pausedAtMs == null) return;
+  return saveActive({ ...a, pausedTotalMs: a.pausedTotalMs + (Date.now() - a.pausedAtMs), pausedAtMs: null });
+}
+
+/** Corrige a duração (sessão esquecida aberta): fica pausada com o tempo informado. */
+export function setActiveDuration(ms) {
+  const now = Date.now();
+  const a = state.active;
+  return saveActive({ ...a, pausedAtMs: now, pausedTotalMs: Math.max(0, now - a.startedAtMs - ms) });
+}
+
+export const cancelSession = () => saveActive(null);
+
+/**
+ * currentPage = endPage da sessão mais recente por endedAt,
+ * a menos que o usuário tenha digitado a página depois dela (o último que mudou vence).
+ */
+function recalcPage(book) {
+  const last = state.sessions
+    .filter((s) => s.bookId === book.id)
+    .sort((a, b) => a.endedAt.localeCompare(b.endedAt))
+    .at(-1);
+  if (last && !(book.currentPageAt && book.currentPageAt > last.endedAt)) book.currentPage = last.endPage;
+}
+
+function sessionRecord({ bookId, startedAt, endedAt, durationSec, startPage, endPage, source }) {
+  return {
+    id: crypto.randomUUID(),
+    bookId,
+    date: isoDate(new Date(startedAt)),
+    startedAt, endedAt,
+    durationSec: Math.round(durationSec),
+    startPage, endPage,
+    pagesRead: Math.max(0, endPage - startPage),
+    source,
+  };
+}
+
+/** Grava a sessão, atualiza o livro e encerra a sessão ativa, tudo numa transação. */
+async function commitSession(session, { markRead = false, clearActive = false } = {}) {
+  const book = state.books.get(session.bookId);
+  state.sessions.push(session);
+  if (book.status === "quero_ler") { book.status = "lendo"; book.startedOn ||= today(); }
+  recalcPage(book);
+  if (markRead) {
+    book.status = "lido";
+    book.finishedOn = today();
+    if (book.totalPages) book.currentPage = book.totalPages;
+  }
+  book.updatedAt = nowIso();
+  const ops = [{ put: "sessions", value: session }, { put: "books", value: book }];
+  if (clearActive) { state.active = null; ops.push({ meta: "activeSession", value: undefined }); }
+  await db.write(ops);
+  if (clearActive) emit("active", null);
+  emit("sessions");
+  emit("books");
+  return session;
+}
+
+export function finishSession(endPage, { markRead = false } = {}) {
+  const a = state.active;
+  const endedAtMs = a.pausedAtMs ?? Date.now();
+  return commitSession(sessionRecord({
+    bookId: a.bookId,
+    startedAt: new Date(a.startedAtMs).toISOString(),
+    endedAt: new Date(endedAtMs).toISOString(),
+    durationSec: elapsedMs(a) / 1000,
+    startPage: a.startPage,
+    endPage,
+    source: "timer",
+  }), { markRead, clearActive: true });
+}
+
+/** Leitura feita sem o app. Hoje: termina agora. Outro dia: ao meio-dia daquele dia. */
+function manualTimes(date, minutes) {
+  let end = new Date();
+  if (date !== today()) {
+    const [y, m, d] = date.split("-").map(Number);
+    end = new Date(y, m - 1, d, 12);
+  }
+  const start = new Date(end.getTime() - (minutes || 0) * 60000);
+  return { startedAt: start.toISOString(), endedAt: end.toISOString() };
+}
+
+export function addManualSession({ bookId, date, startPage, endPage, minutes, markRead = false }) {
+  const s = sessionRecord({
+    bookId, ...manualTimes(date, minutes), durationSec: (minutes || 0) * 60, startPage, endPage, source: "manual",
+  });
+  s.date = date;
+  return commitSession(s, { markRead });
+}
+
+export async function updateSession(id, { date, startPage, endPage, minutes }) {
+  const s = state.sessions.find((x) => x.id === id);
+  if (date !== s.date) Object.assign(s, manualTimes(date, minutes), { date });
+  else s.startedAt = new Date(new Date(s.endedAt).getTime() - minutes * 60000).toISOString();
+  Object.assign(s, {
+    startPage, endPage, durationSec: Math.round(minutes * 60), pagesRead: Math.max(0, endPage - startPage),
+  });
+  const book = state.books.get(s.bookId);
+  recalcPage(book);
+  await db.write([{ put: "sessions", value: s }, { put: "books", value: book }]);
+  emit("sessions");
+  emit("books");
+}
+
+export async function deleteSession(id) {
+  const s = state.sessions.find((x) => x.id === id);
+  state.sessions = state.sessions.filter((x) => x.id !== id);
+  const book = state.books.get(s.bookId);
+  if (state.sessions.some((x) => x.bookId === book.id)) recalcPage(book);
+  else if (!book.currentPageAt) book.currentPage = 0;
+  await db.write([{ del: "sessions", key: id }, { put: "books", value: book }]);
+  emit("sessions");
+  emit("books");
+}
+
+export const sessionsOf = (bookId) =>
+  state.sessions.filter((s) => s.bookId === bookId).sort((a, b) => b.endedAt.localeCompare(a.endedAt));
+
+/** Último livro lido (sessão mais recente), senão o primeiro "lendo". */
+export function lastReadBookId() {
+  const last = [...state.sessions].sort((a, b) => a.endedAt.localeCompare(b.endedAt)).at(-1);
+  if (last && state.books.has(last.bookId)) return last.bookId;
+  return [...state.books.values()].find((b) => b.status === "lendo")?.id || null;
 }

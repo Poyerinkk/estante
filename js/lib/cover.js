@@ -56,6 +56,17 @@ export async function download(urls) {
   return { blob: null, url: list[0] || "" };
 }
 
+// um endereço blob: por capa, reaproveitado por todas as telas
+const urls = new WeakMap();
+/** Endereço para mostrar a capa: Blob salvo, senão a URL remota, senão "". */
+export function coverSrc(book) {
+  if (book?.cover instanceof Blob) {
+    if (!urls.has(book.cover)) urls.set(book.cover, URL.createObjectURL(book.cover));
+    return urls.get(book.cover);
+  }
+  return book?.coverRemoteUrl || "";
+}
+
 /* ---------- cor ---------- */
 
 function rgbToHsl(r, g, b) {

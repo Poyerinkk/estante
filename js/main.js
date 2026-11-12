@@ -5,11 +5,12 @@ import { icons } from "./ui/icons.js";
 import { $, $$ } from "./ui/dom.js";
 import * as shelf from "./ui/shelf.js";
 import * as settings from "./ui/settings.js";
+import * as timer from "./ui/timer.js";
 import { openAddBook } from "./ui/addBook.js";
 
 const TABS = {
   estante: { title: "Estante", screen: shelf },
-  ler: { title: "Ler", screen: placeholder("O cronômetro de leitura chega na próxima fase.") },
+  ler: { title: "Ler", screen: timer },
   dados: { title: "Dados", screen: placeholder("As estatísticas chegam numa fase seguinte.") },
   ajustes: { title: "Ajustes", screen: settings },
 };
@@ -69,8 +70,15 @@ async function start() {
   });
   addEventListener("hashchange", () => go(location.hash.slice(1)));
   on("add-book", () => openAddBook());
+  on("go", (tab) => go(tab));
 
-  go(location.hash.slice(1) || "estante");
+  // ponto discreto na aba Ler enquanto houver leitura em andamento
+  const markReading = () => $('.tab[data-tab="ler"]').classList.toggle("is-reading", !!state.active);
+  on("active", markReading);
+  markReading();
+  timer.init();
+
+  go(timer.needsLongCheck() ? "ler" : location.hash.slice(1) || "estante");
 }
 
 start();

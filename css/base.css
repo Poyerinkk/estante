@@ -119,6 +119,17 @@ img { display: block; max-width: 100%; }
 }
 .tab svg { width: 22px; height: 22px; }
 .tab[aria-current="page"] { color: var(--text); }
+.tab { position: relative; }
+.tab.is-reading::after {
+  content: "";
+  position: absolute;
+  top: 9px;
+  left: calc(50% + 10px);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text);
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
