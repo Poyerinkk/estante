@@ -104,6 +104,13 @@ const visible = (r) => r.width > 0 && r.right > 0 && r.left < innerWidth && r.bo
 
 export function openBook(id, spine) {
   const b = state.books.get(id);
+  // um fechamento ainda em andamento não pode impedir de abrir outro livro
+  if (current?.closing) {
+    current.el.remove();
+    document.querySelectorAll(".fly").forEach((f) => f.remove());
+    document.querySelectorAll(".spine[style*='visibility']").forEach((s) => { s.style.visibility = ""; });
+    current = null;
+  }
   if (!b || current) return;
   const page = buildPage(b);
   current = page;

@@ -360,12 +360,12 @@ function reviewForm(ctx, r, { edit = null } = {}) {
     const file = inp.files?.[0];
     inp.value = "";
     if (!file) return;
-    try {
-      ctx.coverJob = null; // uma foto escolhida vence o download em andamento
-      setBlob(await resize(file, 600, 0.85));
-    } catch {
-      coverNote.textContent = "Não foi possível ler esta imagem.";
-    }
+    // a foto escolhida vence o download em andamento, e "Adicionar" espera por ela
+    coverNote.textContent = "Preparando a foto…";
+    const job = (ctx.coverJob = resize(file, 600, 0.85).then(
+      (blob) => { if (ctx.coverJob === job) setBlob(blob); },
+      () => { if (ctx.coverJob === job) coverNote.textContent = "Não foi possível ler esta imagem."; },
+    ));
   }));
 
   // edição: começa com a capa que o livro já tem

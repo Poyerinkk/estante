@@ -64,7 +64,9 @@ async function cacheFirst(req) {
 
 async function networkFirst(req, cacheName, trim = false) {
   try {
-    const res = await fetch(req);
+    // arquivos do app em localhost: revalida no servidor, senão o cache HTTP do navegador
+    // pode devolver a versão de antes da edição
+    const res = await (trim ? fetch(req) : fetch(req.url, { cache: "no-cache", credentials: "same-origin" }));
     // respostas opacas (imagens de outro site sem CORS) não entram: cada uma pesa megabytes na cota
     if (res.ok) {
       const c = await caches.open(cacheName);
