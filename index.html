@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Estante</title>
+  <meta name="description" content="Estante pessoal de leitura.">
+  <meta name="theme-color" content="#F4EFE6" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1C1A17" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Estante">
+  <script>
+    // Tema aplicado antes da primeira pintura, para não piscar.
+    try {
+      var t = localStorage.getItem("estante.theme") || "auto";
+      if (t === "auto") t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      document.documentElement.dataset.theme = t;
+    } catch (e) {}
+  </script>
+  <link rel="preload" href="fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/newsreader.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/shelf.css">
+  <link rel="stylesheet" href="css/screens.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <h1 class="topbar__title" id="topbar-title">Estante</h1>
+      <div class="topbar__actions" id="topbar-actions"></div>
+    </header>
+
+    <main class="main" id="main"></main>
+
+    <nav class="tabbar" aria-label="Seções">
+      <button class="tab" data-tab="estante" aria-current="page"><span data-icon="shelf"></span>Estante</button>
+      <button class="tab" data-tab="ler"><span data-icon="timer"></span>Ler</button>
+      <button class="tab" data-tab="dados"><span data-icon="chart"></span>Dados</button>
+      <button class="tab" data-tab="ajustes"><span data-icon="sliders"></span>Ajustes</button>
+    </nav>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

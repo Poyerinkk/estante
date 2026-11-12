@@ -1,0 +1,92 @@
+/* Tokens do app: cores, tipografia, espaçamento e movimento.
+   Para mudar o visual, quase tudo começa aqui. */
+
+@font-face {
+  font-family: "Newsreader";
+  src: url("../fonts/newsreader.woff2") format("woff2");
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Newsreader";
+  src: url("../fonts/newsreader-italic.woff2") format("woff2");
+  font-weight: 200 800;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Inter";
+  src: url("../fonts/inter.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* tema claro (padrão) */
+  --bg: #F4EFE6;
+  --surface: #FBF8F2;
+  --surface-2: #EAE3D6;
+  --line: #D9D0BF;
+  --text: #2A2622;
+  --text-2: #6B635A;
+  /* #9A9186 do briefing dava 2,7:1 sobre o fundo; escurecido até 4,5:1 (ver NOTAS.md) */
+  --text-3: #756C62;
+  --accent: #2A2622;
+  --on-accent: #F4EFE6;
+  --danger: #9B3B30;
+  --shelf: #CFC4AE;
+  --spine-neutral: #DDD3C1;   /* lombada de livro sem capa */
+  --scrim: rgba(42, 38, 34, .32);
+
+  --font-serif: "Newsreader", Georgia, serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --fs-1: 13px;
+  --fs-2: 15px;
+  --fs-3: 17px;
+  --fs-4: 22px;
+  --fs-5: 28px;
+  --lh: 1.5;
+
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+  --gutter: 16px;
+
+  --r-card: 10px;
+  --r-pill: 999px;
+
+  --t-fast: 120ms;
+  --t-base: 180ms;
+  --ease: ease-out;
+
+  --topbar-h: 52px;
+  --tabbar-h: 56px;
+  --col-max: 480px;
+
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #1C1A17;
+  --surface: #252220;
+  --surface-2: #2F2B27;
+  --line: #3A3530;
+  --text: #EDE6DA;
+  --text-2: #A89F92;
+  /* #7C746A dava 3,8:1; clareado até 4,5:1 (ver NOTAS.md) */
+  --text-3: #958C80;
+  --accent: #EDE6DA;
+  --on-accent: #1C1A17;
+  --danger: #C9695C;
+  --shelf: #3A352E;
+  --spine-neutral: #48423B;
+  --scrim: rgba(0, 0, 0, .45);
+  color-scheme: dark;
+}
