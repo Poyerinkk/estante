@@ -316,6 +316,17 @@
 }
 .bp-cover img { width: 100%; height: 100%; object-fit: cover; }
 
+.bp-spine-photo { display: flex; align-items: center; justify-content: center; gap: var(--s-2); }
+.bp-spine-thumb {
+  width: 14px;
+  height: 44px;
+  border-radius: 2px;
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 0 0 1px var(--line);
+}
+.bp-spine-hint { text-align: center; max-width: 30ch; justify-self: center; }
+
 .bp-meta { text-align: center; font-size: var(--fs-1); color: var(--text-2); }
 .bp-section { display: grid; gap: var(--s-3); }
 .bp-bar { height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }

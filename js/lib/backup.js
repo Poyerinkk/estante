@@ -23,7 +23,13 @@ export async function buildBackup() {
     db.getAll("books"), db.getAll("shelves"), db.getAll("sessions"), db.getMeta("settings"),
   ]);
   const out = [];
-  for (const b of books) out.push({ ...b, cover: b.cover instanceof Blob ? await blobToDataUrl(b.cover) : null });
+  for (const b of books) {
+    out.push({
+      ...b,
+      cover: b.cover instanceof Blob ? await blobToDataUrl(b.cover) : null,
+      spinePhoto: b.spinePhoto instanceof Blob ? await blobToDataUrl(b.spinePhoto) : null,
+    });
+  }
   const data = {
     format: FORMAT, version: VERSION, exportedAt: new Date().toISOString(),
     books: out, shelves, sessions, settings: settings || null,
@@ -85,7 +91,8 @@ export async function readBackup(file) {
 export async function importBackup(data, mode) {
   const books = [];
   for (const b of data.books) {
-    books.push({ ...b, cover: typeof b.cover === "string" && b.cover.startsWith("data:") ? await dataUrlToBlob(b.cover) : null });
+    const img = async (v) => (typeof v === "string" && v.startsWith("data:") ? dataUrlToBlob(v) : null);
+    books.push({ ...b, cover: await img(b.cover), spinePhoto: await img(b.spinePhoto) });
   }
   const ops = [];
   let shelves = data.shelves;

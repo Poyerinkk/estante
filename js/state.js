@@ -160,6 +160,8 @@ export function newBook(fields = {}) {
     title: "", author: "", publisher: "", edition: "", year: null,
     isbn13: "", isbn10: "", totalPages: null,
     cover: null, coverRemoteUrl: "", spineColor: "",
+    spineEdge: "",      // cor média da borda esquerda da capa (cor do título na lombada)
+    spinePhoto: null,   // Blob: foto da lombada real, se o usuário tirar
     status: "quero_ler", currentPage: 0, startedOn: "", finishedOn: "",
     rating: 0, difficulty: null, notes: "",
     shelfId: null, position: 0,

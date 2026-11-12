@@ -156,6 +156,27 @@
   opacity: .5;
 }
 
+/* lombada com a borda esquerda da capa: a faixa de 2% a 8% da largura ocupa a lombada inteira
+   (largura da imagem = largura da lombada / 0,06; deslocada 2% para pular o fio branco da borda).
+   Os valores acompanham EDGE_FROM e EDGE_TO em js/lib/cover.js. */
+.spine.has-edge {
+  background-image: var(--img);
+  background-size: calc(var(--w) / 0.06) 100%;
+  background-position: calc(var(--w) / -3) 0;
+  background-repeat: no-repeat;
+}
+/* sobre desenho da capa, o título ganha um halo na cor oposta, para continuar legível */
+.spine.has-edge .spine__label {
+  text-shadow: 0 0 2px var(--halo), 0 0 4px var(--halo), 0 0 1px var(--halo);
+}
+/* foto da lombada real: preenche a lombada pelo centro, sem o texto gerado */
+.spine.has-photo {
+  background-image: var(--img);
+  background-size: cover;
+  background-position: center;
+}
+.spine.has-photo .spine__label { display: none; }
+
 .spine { cursor: pointer; }
 .spine:focus-visible { outline-offset: 3px; }
 

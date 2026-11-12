@@ -38,6 +38,17 @@ Alternativa sem conta no GitHub: **Cloudflare Pages**, arrastando a pasta em *Up
 - Os dados ficam no navegador do aparelho. No iPhone, o PWA instalado tem armazenamento próprio, separado do Safari. Se o app for apagado da tela inicial, os dados vão junto. O app pede armazenamento persistente (`navigator.storage.persist()`), mas o backup é a garantia.
 - Em Ajustes › Dados, **Exportar backup** abre o compartilhamento do sistema (Salvar em Arquivos, iCloud, Drive). Um aviso discreto aparece quando o último backup tem mais de 30 dias.
 
+## Lombada parecida com o livro (versão 2)
+
+Pedido depois da publicação: a lombada de cor lisa "não parece o livro".
+
+- **Automático:** quando a capa está salva, a lombada usa a faixa da borda esquerda da capa, de 2% a 8% da largura, esticada até a largura da lombada. Os 2% iniciais ficam de fora por causa do fio branco das capas escaneadas. Nas capas reais, essa borda costuma continuar na lombada: as faixas da Penguin, a xilogravura e o creme da Editora 34. Os números estão em `EDGE_FROM` e `EDGE_TO` (`js/lib/cover.js`) e no `.spine.has-edge` (`css/shelf.css`). Mudou um, mude o outro.
+- **Cor do título:** vem da cor média dessa faixa (`spineEdge`, calculada ao salvar). O título ganha um halo na cor oposta para continuar legível sobre desenhos. Livros salvos antes da versão 2 têm `spineEdge` calculado uma vez, em segundo plano, na abertura do app.
+- **Foto da lombada real:** na página do livro, o botão "Foto da lombada", abaixo da capa, abre a câmera ou a galeria. A foto é guardada até 900 px de largura (`spinePhoto`) e preenche a lombada pelo centro, sem o título gerado. Ela entra no backup e aparece também no voo de abrir o livro e no arrasto.
+- **Limite:** sem recorte manual, a foto precisa mostrar a lombada de pé, centralizada e ocupando a altura. Se sobrar mesa em cima e embaixo, ela aparece na lombada.
+- Capas que só existem no Google (sem CORS, não salvas) continuam com a cor lisa.
+- Depois desta mudança, `VERSION` do `sw.js` passou para `estante-v2`.
+
 ## Fase 7: dados e ajustes
 
 - **Gráficos:** SVG escrito à mão, numa cor só (o grafite do tema, em opacidades), sem biblioteca e sem animação.

@@ -5,7 +5,7 @@
 import {
   state, on, emit, booksOn, spineWidth, moveBook, removeBook, addShelf, renameShelf, deleteShelf,
 } from "../state.js";
-import { inkFor } from "../lib/cover.js";
+import { inkFor, blobUrl } from "../lib/cover.js";
 import { icons } from "./icons.js";
 import { esc, confirm, menu, formDialog, toast } from "./dom.js";
 import { openBook } from "./bookOpen.js";
@@ -71,7 +71,18 @@ function spine(b) {
   // altura entre 90% e 100%, e um atraso de tremor próprio para não tremerem juntas
   const style = [`--w:${w}px`, `--h:${(0.9 + (h % 11) / 100).toFixed(2)}`, `--jd:-${h % 140}ms`];
   if (color) style.push(`--c:${color}`, `--ink:${inkFor(color)}`);
-  const cls = ["spine", w >= 30 && b.author ? "spine--wide" : "", `is-${b.status}`].filter(Boolean).join(" ");
+  // foto da lombada real, senão a faixa da borda esquerda da capa salva
+  const photo = blobUrl(b.spinePhoto);
+  const edge = !photo && blobUrl(b.cover);
+  if (photo) style.push(`--img:url('${photo}')`);
+  else if (edge) {
+    style.push(`--img:url('${edge}')`);
+    const ink = inkFor(b.spineEdge || color || "#DDD3C1");
+    const halo = ink === "#F7F2E9" ? "rgba(35,31,27,.75)" : "rgba(247,242,233,.85)";
+    style.push(`--ink:${ink}`, `--halo:${halo}`);
+  }
+  const cls = ["spine", w >= 30 && b.author ? "spine--wide" : "", `is-${b.status}`,
+    photo ? "has-photo" : edge ? "has-edge" : ""].filter(Boolean).join(" ");
   const label = [b.title, b.author].filter(Boolean).join(", ");
   return `
     <div class="${cls}" style="${style.join(";")}" data-book="${esc(b.id)}" role="button" tabindex="0" aria-label="${esc(label)}">

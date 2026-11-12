@@ -1,6 +1,8 @@
 // Inicialização e roteador de telas.
 
-import { state, load, on } from "./state.js";
+import { state, load, on, emit } from "./state.js";
+import * as db from "./db.js";
+import { edgeColor } from "./lib/cover.js";
 import { icons } from "./ui/icons.js";
 import { $, $$ } from "./ui/dom.js";
 import * as shelf from "./ui/shelf.js";
@@ -75,7 +77,18 @@ async function start() {
 
   // offline depois da primeira carga. A versão nova do sw.js entra em vigor na próxima abertura:
   // a página atual nunca é recarregada, nem no meio de uma leitura cronometrada.
+  backfillSpineEdges();
+
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+
+/** Livros salvos antes da lombada feita da capa: calcula a cor da borda uma vez, em segundo plano. */
+async function backfillSpineEdges() {
+  const todo = [...state.books.values()].filter((b) => b.cover instanceof Blob && !b.spineEdge);
+  if (!todo.length) return;
+  for (const b of todo) b.spineEdge = await edgeColor(b.cover).catch(() => "");
+  await db.write(todo.filter((b) => b.spineEdge).map((b) => ({ put: "books", value: b })));
+  emit("books");
 }
 
 start();

@@ -56,15 +56,41 @@ export async function download(urls) {
   return { blob: null, url: list[0] || "" };
 }
 
-// um endereço blob: por capa, reaproveitado por todas as telas
+// um endereço blob: por imagem, reaproveitado por todas as telas
 const urls = new WeakMap();
+export function blobUrl(blob) {
+  if (!(blob instanceof Blob)) return "";
+  if (!urls.has(blob)) urls.set(blob, URL.createObjectURL(blob));
+  return urls.get(blob);
+}
+
 /** Endereço para mostrar a capa: Blob salvo, senão a URL remota, senão "". */
 export function coverSrc(book) {
-  if (book?.cover instanceof Blob) {
-    if (!urls.has(book.cover)) urls.set(book.cover, URL.createObjectURL(book.cover));
-    return urls.get(book.cover);
-  }
-  return book?.coverRemoteUrl || "";
+  return blobUrl(book?.cover) || book?.coverRemoteUrl || "";
+}
+
+// faixa da capa usada como lombada: de 2% a 8% da largura, a partir da borda esquerda.
+// Os 2% iniciais ficam de fora porque capas escaneadas costumam ter um fio branco na borda.
+export const EDGE_FROM = 0.02;
+export const EDGE_TO = 0.08;
+
+/** Cor média da faixa da borda esquerda da capa (sem domesticar), para escolher a cor do texto. */
+export async function edgeColor(blob) {
+  if (!blob) return "";
+  const img = await imageFromBlob(blob);
+  const w = 100;
+  const h = Math.max(1, Math.round(w * img.naturalHeight / img.naturalWidth));
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const g = c.getContext("2d", { willReadFrequently: true });
+  g.drawImage(img, 0, 0, w, h);
+  const x0 = Math.round(w * EDGE_FROM), x1 = Math.round(w * EDGE_TO);
+  const px = g.getImageData(x0, 0, x1 - x0, h).data;
+  let r = 0, gr = 0, b = 0, n = 0;
+  for (let i = 0; i < px.length; i += 4) { r += px[i]; gr += px[i + 1]; b += px[i + 2]; n++; }
+  const hex = (v) => Math.round(v / n).toString(16).padStart(2, "0");
+  return `#${hex(r)}${hex(gr)}${hex(b)}`;
 }
 
 /* ---------- cor ---------- */

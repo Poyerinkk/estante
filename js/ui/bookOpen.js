@@ -6,7 +6,7 @@ import {
   state, on, emit, setCurrentPage, setStatus, updateBook, removeBook,
   sessionsOf, updateSession, deleteSession,
 } from "../state.js";
-import { coverSrc, inkFor } from "../lib/cover.js";
+import { coverSrc, inkFor, resize, blobUrl } from "../lib/cover.js";
 import { formatDate, duration, today } from "../lib/time.js";
 import { esc, html, confirm, menu, formDialog, toast } from "./dom.js";
 import { openEditBook } from "./addBook.js";
@@ -40,13 +40,25 @@ export function coverFace(b) {
 
 /* ---------- prisma ---------- */
 
+// o clone leva o mesmo fundo da lombada: cor, faixa da capa ou foto da lombada
+function spineBg(cs) {
+  return [
+    `background-color:${cs.backgroundColor}`,
+    `background-image:${cs.backgroundImage.replace(/"/g, "'")}`,
+    `background-size:${cs.backgroundSize}`,
+    `background-position:${cs.backgroundPosition}`,
+    `background-repeat:${cs.backgroundRepeat}`,
+  ].join(";");
+}
+const spineInner = (spine) => (spine.classList.contains("has-photo") ? "" : spine.innerHTML);
+
 function prism(spine, b, s, h, c) {
   const el = document.createElement("div");
   el.className = "fly";
   const cs = getComputedStyle(spine);
   el.innerHTML = `
-    <div class="fly__face fly__spine" style="width:${s}px;--w:${s}px;background:${cs.backgroundColor};color:${cs.color};transform:translateZ(${c / 2}px)">
-      ${spine.innerHTML}
+    <div class="fly__face fly__spine" style="width:${s}px;--w:${s}px;${spineBg(cs)};color:${cs.color};transform:translateZ(${c / 2}px)">
+      ${spineInner(spine)}
     </div>
     <div class="fly__face fly__cover" style="left:${(s - c) / 2}px;width:${c}px;transform:rotateY(90deg) translateZ(${s / 2}px)">
       ${coverFace(b)}
@@ -88,7 +100,7 @@ function flatClone(spine, b, sr) {
   el.className = "fly fly--flat";
   const cs = getComputedStyle(spine);
   el.innerHTML = `
-    <div class="fly__face fly__spine" style="width:100%;--w:${sr.width}px;background:${cs.backgroundColor};color:${cs.color}">${spine.innerHTML}</div>
+    <div class="fly__face fly__spine" style="width:100%;--w:${sr.width}px;${spineBg(cs)};color:${cs.color}">${spineInner(spine)}</div>
     <div class="fly__face fly__cover fly__cover--flat" style="width:100%">${coverFace(b)}</div>`;
   return el;
 }
@@ -313,6 +325,15 @@ function fill(page) {
     <div class="bp-cover-wrap">
       <div class="bp-cover" data-cover>${coverFace(b)}</div>
       ${b.coverRemoteUrl && !b.cover ? `<p class="caption bp-cover-note">Capa não salva offline.</p>` : ""}
+      <div class="bp-spine-photo" data-block>
+        ${b.spinePhoto ? `<span class="bp-spine-thumb" style="background-image:url('${blobUrl(b.spinePhoto)}')" aria-hidden="true"></span>` : ""}
+        <label class="btn btn--small">
+          ${b.spinePhoto ? "Trocar foto da lombada" : "Foto da lombada"}
+          <input type="file" accept="image/*" hidden data-spine-photo>
+        </label>
+        ${b.spinePhoto ? `<button class="btn btn--small btn--text" data-spine-remove>Remover</button>` : ""}
+      </div>
+      ${b.spinePhoto ? "" : `<p class="caption bp-spine-hint">Na estante, a lombada usa a borda da capa. Para ficar igual ao livro, fotografe a lombada de pé, ocupando a altura da foto.</p>`}
     </div>
 
     ${meta ? `<p class="bp-meta" data-block>${meta}</p>` : ""}
@@ -424,6 +445,25 @@ function bind(page, b, body) {
     const difficulty = b.difficulty === v ? null : v;
     toggleSeg(e.currentTarget, "v", difficulty);
     updateBook(b, { difficulty });
+  });
+
+  const spineInput = body.querySelector("[data-spine-photo]");
+  spineInput.addEventListener("change", async () => {
+    const file = spineInput.files?.[0];
+    spineInput.value = "";
+    if (!file) return;
+    try {
+      // fotos de lombada são altas e finas: guarda até 900 px de largura para sobrar nitidez no recorte
+      await updateBook(b, { spinePhoto: await resize(file, 900, 0.85) });
+      toast("Foto da lombada salva.");
+    } catch {
+      toast("Não foi possível ler esta imagem.");
+    }
+  });
+  body.querySelector("[data-spine-remove]")?.addEventListener("click", async () => {
+    if (await confirm("Remover a foto da lombada? A lombada volta a usar a borda da capa.", { ok: "Remover", danger: true })) {
+      await updateBook(b, { spinePhoto: null });
+    }
   });
 
   const notes = body.querySelector("[name=notes]");

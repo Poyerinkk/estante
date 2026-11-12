@@ -1,7 +1,7 @@
 // Service worker: o app inteiro funciona offline depois da primeira carga (exceto a busca).
 // Ao editar qualquer arquivo do app, troque VERSION (estante-v2, v3...) para os aparelhos baixarem de novo.
 
-const VERSION = "estante-v1";
+const VERSION = "estante-v2";
 const API_CACHE = "estante-api";
 const API_LIMIT = 80;
 

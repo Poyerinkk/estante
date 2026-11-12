@@ -4,7 +4,7 @@
 import { state, newBook, addBook, updateBook, firstShelfWithRoom } from "../state.js";
 import { searchText, searchIsbn, olCoverIsbn } from "../lib/search.js";
 import { parse as parseIsbn, amazonCode, isValid10, to13 } from "../lib/isbn.js";
-import { download, resize, dominantColor } from "../lib/cover.js";
+import { download, resize, dominantColor, edgeColor } from "../lib/cover.js";
 import { openSheet, html, esc, toast } from "./dom.js";
 import { icons } from "./icons.js";
 
@@ -439,8 +439,12 @@ function reviewForm(ctx, r, { edit = null } = {}) {
       coverRemoteUrl: cover.blob ? "" : cover.remote,
     };
     // a cor da lombada só é recalculada quando a capa muda
-    fields.spineColor = edit && edit.cover === cover.blob ? edit.spineColor
+    const sameCover = edit && edit.cover === cover.blob;
+    fields.spineColor = sameCover ? edit.spineColor
       : cover.blob ? await dominantColor(cover.blob).catch(() => "") : "";
+    // cor média da borda esquerda: decide a cor do título sobre a lombada feita da capa
+    fields.spineEdge = sameCover ? edit.spineEdge || ""
+      : cover.blob ? await edgeColor(cover.blob).catch(() => "") : "";
     try {
       if (edit) {
         await updateBook(edit, fields);
